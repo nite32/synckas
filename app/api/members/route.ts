@@ -1,0 +1,3 @@
+import {NextResponse} from "next/server"; import {prisma} from "@/lib/prisma"; import {memberSchema} from "@/lib/validation"; import {requireSession} from "@/lib/auth";
+export async function GET(){return NextResponse.json(await prisma.member.findMany({orderBy:{name:"asc"}}))}
+export async function POST(req:Request){try{await requireSession();const b=memberSchema.parse(await req.json());const m=await prisma.member.create({data:{...b,name:b.name.trim()}});return NextResponse.json(m,{status:201})}catch{return NextResponse.json({error:"Nama anggota sudah ada atau data tidak valid."},{status:400})}}

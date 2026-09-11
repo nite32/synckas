@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+  
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  OTHER
+}
+
+enum ExpensePaymentMethod {
+  CASH
+  TRANSFER
+  OTHER
+}
+
+model Member {
+  id        String       @id @default(cuid())
+  syncKey   String       @unique @default(cuid())
+  name      String       @unique
+  classInfo String?
+  status    MemberStatus @default(ACTIVE)
+
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id      String @id @default(cuid())
+  syncKey String @unique @default(cuid())
+
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  month       String
+  week        String
+  paymentDate DateTime?
+  amount      Int           @default(0)
+  method      PaymentMethod @default(CASH)
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Expense {
+  id      String @id @default(cuid())
+  syncKey String @unique @default(cuid())
+
+  date        DateTime
+  category    String
+  subcategory String?
+  description String
+  recipient   String?
+  amount      Int
+  method      ExpensePaymentMethod @default(CASH)
+  receiptUrl  String?
+  reference   String?
+  approved    Boolean              @default(false)
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminUser {
+  id           String @id @default(cuid())
+  username     String @unique
+  passwordHash String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

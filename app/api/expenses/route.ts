@@ -1,0 +1,3 @@
+import {NextResponse} from "next/server"; import {prisma} from "@/lib/prisma"; import {expenseSchema} from "@/lib/validation"; import {requireSession} from "@/lib/auth";
+export async function GET(){const rows=await prisma.expense.findMany({include:{subcategory:{include:{category:true}}},orderBy:{date:"desc"}});return NextResponse.json(rows.map(x=>({...x,amount:Number(x.amount)})))}
+export async function POST(req:Request){try{await requireSession();const b=expenseSchema.parse(await req.json());const e=await prisma.expense.create({data:{...b,date:new Date(b.date)}});return NextResponse.json({...e,amount:Number(e.amount)},{status:201})}catch{return NextResponse.json({error:"Data pengeluaran tidak valid."},{status:400})}}

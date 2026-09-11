@@ -1,6 +1,118 @@
-"use client";
-import {useEffect,useState} from "react"; import {Pencil,Plus,Trash2,X} from "lucide-react"; import {MONTHS} from "@/lib/constants"; import {formatDate,formatRupiah} from "@/lib/utils";
-type Member={id:string;name:string}; type Payment={id:string;member:Member;month:string;week:number;date:string;amount:number;method:string;note:string|null};
-const blank={memberId:"",month:MONTHS[0],week:1,date:new Date().toISOString().slice(0,10),amount:"5000",method:"CASH",note:""};
-export function PaymentManager(){const [isAdmin,setIsAdmin]=useState(false),[members,setMembers]=useState<Member[]>([]),[rows,setRows]=useState<Payment[]>([]),[form,setForm]=useState<any>(blank),[editing,setEditing]=useState<string|null>(null),[msg,setMsg]=useState("");async function load(){const [a,b]=await Promise.all([fetch('/api/members'),fetch('/api/payments')]);setMembers(await a.json());setRows(await b.json())}useEffect(()=>{load();fetch('/api/auth/me').then(r=>r.json()).then(d=>setIsAdmin(!!d.authenticated))},[]);function edit(r:Payment){setEditing(r.id);setForm({memberId:r.member.id,month:r.month,week:r.week,date:new Date(r.date).toISOString().slice(0,10),amount:String(r.amount),method:r.method,note:r.note||""});window.scrollTo({top:0,behavior:'smooth'})}function reset(){setEditing(null);setForm(blank)}async function submit(e:React.FormEvent){e.preventDefault();setMsg("");const url=editing?`/api/payments/${editing}`:'/api/payments';const r=await fetch(url,{method:editing?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,week:Number(form.week),amount:Number(form.amount)})});const d=await r.json();if(!r.ok){setMsg(d.error||'Gagal menyimpan.');return}setMsg(editing?'Pembayaran diperbarui.':'Pembayaran tersimpan.');reset();load()}async function del(id:string){if(!confirm('Hapus transaksi pembayaran ini?'))return;const r=await fetch(`/api/payments/${id}`,{method:'DELETE'});if(r.ok)load();else setMsg('Transaksi tidak dapat dihapus.')}return <div className="p-6 lg:p-8"><div className="mx-auto max-w-7xl"><header className="mb-6"><p className="text-xs font-semibold uppercase tracking-[.18em] text-slate-500">Keuangan</p><h1 className="mt-2 text-2xl font-semibold">Pembayaran</h1><p className="mt-1 text-sm text-slate-500">Kelola pembayaran mingguan, termasuk cicilan dan pelunasan.</p></header><div className="grid gap-6 xl:grid-cols-[380px_1fr]">{isAdmin&&(<form onSubmit={submit} className="border border-line bg-white p-5 shadow-soft"><div className="flex items-center justify-between"><h2 className="font-semibold">{editing?'Edit pembayaran':'Tambah pembayaran'}</h2>{editing&&<button type="button" onClick={reset}><X size={17}/></button>}</div><div className="mt-5 space-y-4"><Field label="Anggota"><select required value={form.memberId} onChange={e=>setForm({...form,memberId:e.target.value})} className="field"><option value="">Pilih anggota</option>{members.filter(m=>true).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></Field><div className="grid grid-cols-2 gap-3"><Field label="Bulan"><select value={form.month} onChange={e=>setForm({...form,month:e.target.value})} className="field">{MONTHS.map(m=><option key={m}>{m}</option>)}</select></Field><Field label="Minggu"><select value={form.week} onChange={e=>setForm({...form,week:Number(e.target.value)})} className="field">{[1,2,3,4,5].map(w=><option key={w} value={w}>Minggu {w}</option>)}</select></Field></div><Field label="Tanggal"><input required type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} className="field"/></Field><Field label="Nominal"><input required min="1" type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} className="field"/></Field><Field label="Metode"><select value={form.method} onChange={e=>setForm({...form,method:e.target.value})} className="field"><option value="CASH">Tunai</option><option value="TRANSFER">Transfer</option><option value="OTHER">Lainnya</option></select></Field><Field label="Keterangan"><textarea value={form.note} onChange={e=>setForm({...form,note:e.target.value})} className="field min-h-20"/></Field><button className="w-full bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-accentDark">{editing?'Simpan perubahan':'Simpan pembayaran'}</button>{msg&&<p className="text-sm text-slate-600">{msg}</p>}</div></form>)}<section className="overflow-hidden border border-line bg-white shadow-soft"><div className="border-b border-line p-5"><h2 className="font-semibold">Riwayat pembayaran</h2></div><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-5 py-3">Tanggal</th><th className="px-5 py-3">Nama</th><th className="px-5 py-3">Periode</th><th className="px-5 py-3 text-right">Nominal</th><th className="px-5 py-3 text-right">Aksi</th></tr></thead><tbody className="divide-y divide-line">{rows.map(r=><tr key={r.id}><td className="px-5 py-3">{formatDate(r.date)}</td><td className="px-5 py-3 font-medium">{r.member.name}</td><td className="px-5 py-3">{r.month}, Minggu {r.week}</td><td className="px-5 py-3 text-right font-semibold">{formatRupiah(r.amount)}</td><td className="px-5 py-3"><div className="flex justify-end gap-1">{isAdmin&&<><button onClick={()=>edit(r)} className="icon-btn" title="Edit"><Pencil size={16}/></button><button onClick={()=>del(r.id)} className="icon-btn text-red-700" title="Hapus"><Trash2 size={16}/></button></>}</div></td></tr>)}{!rows.length&&<tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">Belum ada pembayaran.</td></tr>}</tbody></table></div></section></div></div></div>}
+import {useEffect,useState} from "react";
+import {Pencil,Trash2,X} from "lucide-react";
+import {formatDate,formatRupiah} from "@/lib/utils";
+import {MONTHS} from "@/lib/constants";
+
+type Member={id:string;name:string};
+type Payment={id:string;member:Member;month:string;week:string;paymentDate:string|null;amount:number;method:string;notes:string|null};
+
+const blank={memberId:"",month:MONTHS[0],week:"1",paymentDate:new Date().toISOString().slice(0,10),amount:"5000",method:"CASH",notes:""};
+
+export function PaymentManager(){
+  const [isAdmin,setIsAdmin]=useState(false),
+        [members,setMembers]=useState<Member[]>([]),
+        [rows,setRows]=useState<Payment[]>([]),
+        [form,setForm]=useState<any>(blank),
+        [editing,setEditing]=useState<string|null>(null),
+        [msg,setMsg]=useState("");
+
+  async function load(){
+    const [a,b]=await Promise.all([fetch('/api/members'),fetch('/api/payments')]);
+    setMembers(await a.json());
+    setRows(await b.json());
+  }
+  useEffect(()=>{load();fetch('/api/auth/me').then(r=>r.json()).then(d=>setIsAdmin(!!d.authenticated))},[]);
+
+  function edit(r:Payment){
+    setEditing(r.id);
+    setForm({
+      memberId:r.member.id,
+      month:r.month,
+      week:r.week,
+      paymentDate:r.paymentDate?new Date(r.paymentDate).toISOString().slice(0,10):new Date().toISOString().slice(0,10),
+      amount:String(r.amount),
+      method:r.method,
+      notes:r.notes||""
+    });
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function reset(){setEditing(null);setForm(blank)}
+
+  async function submit(e:React.FormEvent){
+    e.preventDefault();
+    setMsg("");
+    const url=editing?`/api/payments/${editing}`:'/api/payments';
+    const r=await fetch(url,{
+      method:editing?'PATCH':'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...form,amount:Number(form.amount)})
+    });
+    const d=await r.json();
+    if(!r.ok){setMsg(d.error||'Gagal menyimpan.');return}
+    setMsg(editing?'Pembayaran diperbarui.':'Pembayaran tersimpan.');
+    reset();load();
+  }
+
+  async function del(id:string){
+    if(!confirm('Hapus transaksi pembayaran ini?'))return;
+    const r=await fetch(`/api/payments/${id}`,{method:'DELETE'});
+    if(r.ok)load();else setMsg('Transaksi tidak dapat dihapus.');
+  }
+
+  return <div className="p-6 lg:p-8"><div className="mx-auto max-w-7xl">
+    <header className="mb-6">
+      <p className="text-xs font-semibold uppercase tracking-[.18em] text-slate-500">Keuangan</p>
+      <h1 className="mt-2 text-2xl font-semibold">Pembayaran</h1>
+      <p className="mt-1 text-sm text-slate-500">Kelola pembayaran mingguan, termasuk cicilan dan pelunasan.</p>
+    </header>
+    <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
+      {isAdmin&&(<form onSubmit={submit} className="border border-line bg-white p-5 shadow-soft">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">{editing?'Edit pembayaran':'Tambah pembayaran'}</h2>
+          {editing&&<button type="button" onClick={reset}><X size={17}/></button>}
+        </div>
+        <div className="mt-5 space-y-4">
+          <Field label="Anggota"><select required value={form.memberId} onChange={e=>setForm({...form,memberId:e.target.value})} className="field"><option value="">Pilih anggota</option>{members.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Bulan"><select value={form.month} onChange={e=>setForm({...form,month:e.target.value})} className="field">{MONTHS.map(m=><option key={m}>{m}</option>)}</select></Field>
+            <Field label="Minggu"><select value={form.week} onChange={e=>setForm({...form,week:e.target.value})} className="field">{[1,2,3,4,5].map(w=><option key={w} value={String(w)}>Minggu {w}</option>)}</select></Field>
+          </div>
+          <Field label="Tanggal"><input required type="date" value={form.paymentDate} onChange={e=>setForm({...form,paymentDate:e.target.value})} className="field"/></Field>
+          <Field label="Nominal"><input required min="1" type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} className="field"/></Field>
+          <Field label="Metode"><select value={form.method} onChange={e=>setForm({...form,method:e.target.value})} className="field"><option value="CASH">Tunai</option><option value="TRANSFER">Transfer</option><option value="OTHER">Lainnya</option></select></Field>
+          <Field label="Keterangan"><textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} className="field min-h-20"/></Field>
+          <button className="w-full bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-accentDark">{editing?'Simpan perubahan':'Simpan pembayaran'}</button>
+          {msg&&<p className="text-sm text-slate-600">{msg}</p>}
+        </div>
+      </form>)}
+      <section className="overflow-hidden border border-line bg-white shadow-soft">
+        <div className="border-b border-line p-5"><h2 className="font-semibold">Riwayat pembayaran</h2></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>
+              <th className="px-5 py-3">Tanggal</th>
+              <th className="px-5 py-3">Nama</th>
+              <th className="px-5 py-3">Periode</th>
+              <th className="px-5 py-3 text-right">Nominal</th>
+              <th className="px-5 py-3 text-right">Aksi</th>
+            </tr></thead>
+            <tbody className="divide-y divide-line">
+              {rows.map(r=><tr key={r.id}>
+                <td className="px-5 py-3">{r.paymentDate?formatDate(r.paymentDate):'-'}</td>
+                <td className="px-5 py-3 font-medium">{r.member.name}</td>
+                <td className="px-5 py-3">{r.month}, Minggu {r.week}</td>
+                <td className="px-5 py-3 text-right font-semibold">{formatRupiah(r.amount)}</td>
+                <td className="px-5 py-3"><div className="flex justify-end gap-1">
+                  {isAdmin&&<><button onClick={()=>edit(r)} className="icon-btn" title="Edit"><Pencil size={16}/></button><button onClick={()=>del(r.id)} className="icon-btn text-red-700" title="Hapus"><Trash2 size={16}/></button></>}
+                </div></td>
+              </tr>)}
+              {!rows.length&&<tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-slate-500">Belum ada pembayaran.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div></div>;
+}
+
 function Field({label,children}:{label:string,children:React.ReactNode}){return <label className="block text-sm font-medium">{label}{children}</label>}
